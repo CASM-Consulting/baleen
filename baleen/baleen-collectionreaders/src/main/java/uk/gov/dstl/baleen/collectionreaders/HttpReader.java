@@ -28,7 +28,6 @@ import java.util.Queue;
 public class HttpReader extends BaleenCollectionReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpReader.class);
     Queue<Document> data;
-    Document nextDocument;
 
     private Server server;
     private ServletContextHandler servletContextHandler;
@@ -49,7 +48,6 @@ public class HttpReader extends BaleenCollectionReader {
             try {
                 server.start();
             } catch (Exception e) {
-//                throw new BaleenException("Unable to start server", e);
                 e.printStackTrace();
             }
             LOGGER.info("Server started");
@@ -57,12 +55,13 @@ public class HttpReader extends BaleenCollectionReader {
             System.out.println("Server has not yet been configured");
         }
 
+        SussexDataStorage.init();
         System.out.println("Started listener server");
     }
 
     @Override
     protected void doGetNext(JCas jCas) throws IOException, CollectionException {
-        System.out.println("Next document is " + nextDocument);
+        Document nextDocument = data.poll();
         DocumentAnnotation da = (DocumentAnnotation) jCas.getDocumentAnnotationFs();
         da.setSourceUri(nextDocument.id.toString());
         jCas.setDocumentText(nextDocument.text);
@@ -74,8 +73,7 @@ public class HttpReader extends BaleenCollectionReader {
 
     @Override
     public synchronized boolean doHasNext() throws IOException, CollectionException {
-        nextDocument = data.poll();
-        return nextDocument != null;
+        return !data.isEmpty();
     }
 
     public synchronized void addData(String data, Object id) {
@@ -89,12 +87,14 @@ public class HttpReader extends BaleenCollectionReader {
             this.collectionReader = collectionReader;
         }
 
-        //http://0.0.0.0:6413/api/1/consume
+        //URL is: http://0.0.0.0:6413/api/1/consume
+        // test like so: wget http://0.0.0.0:3124/sussex/consume --post-data="data=hello from www.google.com in Germany&id=1" -qO-
         @Override
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             collectionReader.addData(req.getParameter("data"), req.getParameter("id"));
-//            resp.sendError(404);
-//            final AsyncContext asyncContext = req.startAsync();
+            final AsyncContext as = req.startAsync();
+            as.setTimeout(10_000);//10s
+            SussexDataStorage.add(req.getParameter("id"), as);
         }
     }
 
