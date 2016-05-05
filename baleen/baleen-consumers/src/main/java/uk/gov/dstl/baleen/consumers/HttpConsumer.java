@@ -33,11 +33,11 @@ public class HttpConsumer extends BaleenConsumer {
     @Override
     public void doProcess(JCas jcas) throws AnalysisEngineProcessException {
         DocumentAnnotation da = getDocumentAnnotation(jcas);
-        final String sourceUri = da.getSourceUri();
+        final String docId = da.getSourceUri();
 
         final AnnotatedDocument pojo = new AnnotatedDocument();
         pojo.setText(jcas.getDocumentText());
-        pojo.setId(sourceUri);
+        pojo.setId(docId);
 
 
         Collection<Location> locations = JCasUtil.select(jcas, Location.class);
@@ -55,14 +55,20 @@ public class HttpConsumer extends BaleenConsumer {
         pojo.setUrls(urlMentions);
         //todo extract and add more annotations
 
-        final AsyncContext asyncContext = SussexDataStorage.getAndRemove(sourceUri);
-        try {
-            asyncContext.getResponse().setContentType("application/json");
-            mapper.writeValue(asyncContext.getResponse().getWriter(), pojo);
-        } catch (IOException e) {
-            e.printStackTrace();
+        final AsyncContext as = SussexDataStorage.getAndRemove(docId);
+        SussexDataStorage.addReadyDocument(as, pojo);
+
+        if (SussexDataStorage.getNumProcessed(as) == SussexDataStorage.getBatchSize(as)) {
+            // done with all docs in this batch
+            try {
+                as.getResponse().setContentType("application/json");
+                mapper.writeValue(as.getResponse().getWriter(), SussexDataStorage.getAllProcessed(as));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            as.complete();
         }
-        asyncContext.complete();
+
     }
 
     @Override

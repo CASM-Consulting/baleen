@@ -1,5 +1,7 @@
 package uk.gov.dstl.baleen.collectionreaders;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.uima.UimaContext;
 import org.apache.uima.collection.CollectionException;
 import org.apache.uima.jcas.JCas;
@@ -20,6 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Queue;
 
 /**
@@ -28,6 +31,7 @@ import java.util.Queue;
 public class HttpReader extends BaleenCollectionReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpReader.class);
     Queue<Document> data;
+    private ObjectMapper mapper;
 
     private Server server;
     private ServletContextHandler servletContextHandler;
@@ -35,6 +39,7 @@ public class HttpReader extends BaleenCollectionReader {
     @Override
     protected void doInitialize(UimaContext uimaContext) throws ResourceInitializationException {
         data = new ConcurrentArrayQueue<>();
+        mapper = new ObjectMapper();
 
         this.server = new Server(InetSocketAddress.createUnresolved("0.0.0.0", 3124));
         servletContextHandler = new ServletContextHandler();
@@ -56,7 +61,6 @@ public class HttpReader extends BaleenCollectionReader {
         }
 
         SussexDataStorage.init();
-        System.out.println("Started listener server");
     }
 
     @Override
@@ -76,8 +80,8 @@ public class HttpReader extends BaleenCollectionReader {
         return !data.isEmpty();
     }
 
-    public synchronized void addData(String data, Object id) {
-        this.data.add(new Document(data, id));
+    public synchronized void addData(Document d) {
+        this.data.add(d);
     }
 
     private class MyServlet extends HttpServlet {
@@ -89,21 +93,39 @@ public class HttpReader extends BaleenCollectionReader {
 
         //URL is: http://0.0.0.0:6413/api/1/consume
         // test like so: wget http://0.0.0.0:3124/sussex/consume --post-data="data=hello from www.google.com in Germany&id=1" -qO-
+        // test like so: wget http://0.0.0.0:3124/sussex/consume --post-data='data=[{"text":"hello from www.google.com in Germany","id":"1"}]' -qO-
         @Override
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-            collectionReader.addData(req.getParameter("data"), req.getParameter("id"));
+            List<Document> payload = mapper.readValue(req.getParameter("data"), new TypeReference<List<Document>>() {});
+
             final AsyncContext as = req.startAsync();
             as.setTimeout(10_000);//10s
-            SussexDataStorage.add(req.getParameter("id"), as);
+            for(Document d: payload){
+                collectionReader.addData(d);
+                SussexDataStorage.add(d.id.toString(), as);
+            }
+            SussexDataStorage.setBatchSize(as, payload.size());
         }
     }
 
-    private class Document {
+    // Jackson POJO
+    private static class Document {
         public String text;
         public Object id;
 
+        public Document() {
+        }
+
         public Document(String text, Object id) {
             this.text = text;
+            this.id = id;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
+
+        public void setId(Object id) {
             this.id = id;
         }
     }
