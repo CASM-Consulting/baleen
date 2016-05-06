@@ -66,11 +66,6 @@
 			</exclusions>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>uk.gov.dstl.baleen</groupId>
-			<artifactId>baleen-collectionreaders</artifactId>
-			<version>2.2.0-SNAPSHOT</version>
-		</dependency>
 	</dependencies>
 	<build>
 		<plugins>

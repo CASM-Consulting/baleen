@@ -1,8 +1,8 @@
 pipelines:
   - name: sample
-    file: /home/m/mm/mmb28/NetBeansProjects/casm/baleen/baleen/baleen-runner/src/test/resources/uk/gov/dstl/baleen/runner/sample_pipeline.yaml
+    file: src/test/resources/uk/gov/dstl/baleen/runner/sample_pipeline.yaml
     
 logging:
   loggers:
     - name: console
-      minLevel: INFO
+      minLevel: DEBUG
