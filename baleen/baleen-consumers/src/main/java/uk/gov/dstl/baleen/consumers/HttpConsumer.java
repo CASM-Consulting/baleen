@@ -57,11 +57,11 @@ public class HttpConsumer extends BaleenConsumer {
 
         AsyncContext as = SussexDataStorage.get().notifyProcessed(docId, pojo);
 
-        if (SussexDataStorage.get().isBatchDone(docId)) {
+        if (SussexDataStorage.get().isBatchDone(as)) {
             // done with all docs in this batch
             try {
                 as.getResponse().setContentType("application/json");
-                mapper.writeValue(as.getResponse().getWriter(), SussexDataStorage.get().getProcessedBatch(docId));
+                mapper.writeValue(as.getResponse().getWriter(), SussexDataStorage.get().getProcessedBatch(as));
             } catch (IOException e) {
                 e.printStackTrace();
             }

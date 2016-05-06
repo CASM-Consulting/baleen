@@ -13,10 +13,10 @@ import java.util.Map;
  * be returned as a response to the same request (one round trip only)
  * <p>
  * Doc 1+------+      +---> Processed Doc 1
- * .         v      +           .
- * .      Async Context         .
- * .           ^   ^            .
- * .           |   |            .
+ *   .         v      +         .
+ *   .    Async Context         .
+ *   .         ^   ^            .
+ *   .         |   |            .
  * Doc N+------+   +---> Processed Doc N
  * <p>
  * Created by mmb28 on 04/05/2016.
@@ -25,14 +25,14 @@ public class SussexDataStorage {
     private static SussexDataStorage instance;
 
     // maps doc id to its HTTP context
-    private Map<String, AsyncContext> contexts;
-    // maps HTTP context to incoming docs it contained
+    private Map<String, AsyncContext> raw2context;
+    // maps HTTP context to number of incoming docs it contained
     private Map<AsyncContext, Integer> context2raw;
     // maps HTTP context to the processed version of all documents that arrived with that request
     private Map<AsyncContext, List<Object>> context2processed;
 
     private SussexDataStorage() {
-        contexts = new HashMap<>();
+        raw2context = new HashMap<>();
         context2raw = new HashMap<>();
         context2processed = new HashMap<>();
     }
@@ -44,7 +44,7 @@ public class SussexDataStorage {
     }
 
     public synchronized void addRawDoc(String id, AsyncContext as) {
-        contexts.put(id, as);
+        raw2context.put(id, as);
     }
 
     /** Log a processed version of a doc
@@ -53,7 +53,7 @@ public class SussexDataStorage {
      * @return
      */
     public synchronized AsyncContext notifyProcessed(String id, Object processedDoc) {
-        final AsyncContext as = contexts.remove(id);
+        final AsyncContext as = raw2context.remove(id);
 
         List<Object> done;
         if (context2processed.containsKey(as))
@@ -68,12 +68,11 @@ public class SussexDataStorage {
     }
 
     /**
-     * Checks if the whole batch that an incoming doc is contained in has been processed
-     * @param id id of the incoming doc
+     * Checks if the whole batch that arrive in a POST has been processed
+     * @param as id of the incoming doc
      * @return
      */
-    public boolean isBatchDone(String id){
-        final AsyncContext as = contexts.get(id);
+    public boolean isBatchDone(AsyncContext as){
         return context2processed.get(as).size() == context2raw.get(as);
     }
 
@@ -86,11 +85,13 @@ public class SussexDataStorage {
 
 
     /**
-     * Return all processed docs that arrived at the same time as a doc X
-     * @param id id of doc X
+     * Return all processed docs that arrived in a POST request. Should only be called
+     * if `isBatchDone(as)` because it also cleans up
+     * @param as the request context
      * @return
      */
-    public synchronized List<Object> getProcessedBatch(String id) {
-        return context2processed.get(contexts.get(id));
+    public synchronized List<Object> getProcessedBatch(AsyncContext as) {
+        context2raw.remove(as);
+        return context2processed.remove(as);
     }
 }
