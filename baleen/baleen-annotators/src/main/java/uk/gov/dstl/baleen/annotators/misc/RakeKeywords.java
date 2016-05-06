@@ -1,23 +1,16 @@
 //Dstl (c) Crown Copyright 2016
 package uk.gov.dstl.baleen.annotators.misc;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.StringJoiner;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
-import org.apache.uima.fit.descriptor.ExternalResource;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 
@@ -30,12 +23,8 @@ import com.google.common.collect.TreeMultimap;
 import opennlp.tools.stemmer.Stemmer;
 import opennlp.tools.stemmer.snowball.SnowballStemmer;
 import opennlp.tools.stemmer.snowball.SnowballStemmer.ALGORITHM;
-import uk.gov.dstl.baleen.exceptions.InvalidParameterException;
-import uk.gov.dstl.baleen.resources.SharedStopwordResource;
-import uk.gov.dstl.baleen.types.common.Buzzword;
-import uk.gov.dstl.baleen.types.metadata.Metadata;
-import uk.gov.dstl.baleen.uima.BaleenAnnotator;
-import uk.gov.dstl.baleen.uima.utils.UimaTypesUtils;
+import uk.gov.dstl.baleen.annotators.misc.helpers.AbstractKeywordsAnnotator;
+import uk.gov.dstl.baleen.annotators.misc.helpers.NoOpStemmer;
 
 /**
  * Uses the RAKE (Rapid Automatic Keyword Extraction) algorithm to automatically
@@ -56,44 +45,7 @@ import uk.gov.dstl.baleen.uima.utils.UimaTypesUtils;
  * 
  * @baleen.javadoc
  */
-public class RakeKeywords extends BaleenAnnotator {
-	/**
-	 * Should the extracted keywords be annotated as Buzzwords within the document? 
-	 * 
-	 * @baleen.config true
-	 */
-	public static final String PARAM_ADD_BUZZWORDS = "addBuzzwords";
-	@ConfigurationParameter(name = PARAM_ADD_BUZZWORDS, defaultValue="true")
-	private Boolean addBuzzwords;
-	
-	/**
-	 * The maximum number of keywords to extract.
-	 * 
-	 * The number of keywords returned will be the smaller of this number and
-	 * 1/3 the total possible keywords.
-	 * 
-	 * If there are a number of keywords with the same score that would take the total
-	 * number of keywords over the limit, then all are included.
-	 * 
-	 * @baleen.config 5
-	 */
-	public static final String PARAM_MAX_KEYWORDS = "maxKeywords";
-	@ConfigurationParameter(name = PARAM_MAX_KEYWORDS, defaultValue="5")
-	private Integer maxKeywords;
-	
-	/**
-	 * The stoplist to use. If the stoplist matches one of the enum's provided in
-	 * {@link uk.gov.dstl.baleen.resources.SharedStopwordResource#StopwordList}, then
-	 * that list will be loaded.
-	 * 
-	 * Otherwise, the string is taken to be a file path and that file is used.
-	 * The format of the file is expected to be one stopword per line.
-	 * 
-	 * @baleen.config DEFAULT
-	 */
-	public static final String PARAM_STOPLIST = "stoplist";
-	@ConfigurationParameter(name = PARAM_STOPLIST, defaultValue="DEFAULT")
-	private String stoplist;
+public class RakeKeywords extends AbstractKeywordsAnnotator {
 	
 	/**
 	 * The stemming algorithm to use, as defined in OpenNLP's SnowballStemmer.ALGORITHM enum, e.g. ENGLISH.
@@ -105,41 +57,13 @@ public class RakeKeywords extends BaleenAnnotator {
 	@ConfigurationParameter(name = PARAM_STEMMING, defaultValue = "")
 	protected String stemming;
 	
-	/**
-	 * Connection to Stopwords Resource
-	 * 
-	 * @baleen.resource uk.gov.dstl.baleen.resources.SharedStopwordResource
-	 */
-	public static final String KEY_STOPWORDS = "stopwords";
-	@ExternalResource(key = KEY_STOPWORDS)
-	private SharedStopwordResource stopwordResource;
 	
 	private Pattern stopwordPattern;
 	private Stemmer stemmer;
 	
 	@Override
 	public void doInitialize(UimaContext aContext) throws ResourceInitializationException {
-		Collection<String> stopwords;
-		
-		try{
-			stopwords = stopwordResource.getStopwords(SharedStopwordResource.StopwordList.valueOf(stoplist));
-		}catch(IllegalArgumentException iae){
-			getMonitor().info("Value of {} does not match pre-defined list, assuming value is a file", PARAM_STOPLIST);
-			getMonitor().debug("Unable to parse value of {} as StopwordList enum", PARAM_STOPLIST, iae);
-			
-			File f = new File(stoplist);
-			
-			try{
-				stopwords = stopwordResource.getStopwords(f);
-			}catch(IOException ioe){
-				throw new ResourceInitializationException(
-					new InvalidParameterException("Couldn't load stoplist", ioe)
-				);
-			}
-		}catch(IOException ioe){
-			getMonitor().warn("Unable to load Stopword list, resorting to default list", ioe);
-			stopwords = stopwordResource.getStopwords();
-		}
+		super.doInitialize(aContext);
 		
 		if(!Strings.isNullOrEmpty(stemming)){
 			try{
@@ -153,11 +77,7 @@ public class RakeKeywords extends BaleenAnnotator {
 			 stemmer = new NoOpStemmer();
 		}
 		
-		StringJoiner sj = new StringJoiner("|");
-		for(String s : stopwords){
-			sj.add(Pattern.quote(s));
-		}
-		stopwordPattern = Pattern.compile("\\b("+sj.toString()+")\\b", Pattern.CASE_INSENSITIVE);
+		stopwordPattern = buildStopwordsPattern();
 	}
 	
 	@Override
@@ -187,21 +107,9 @@ public class RakeKeywords extends BaleenAnnotator {
 			index--;
 		}
 		
-		Metadata md = new Metadata(jCas);
-		md.setKey("keywords");
-		md.setValue(finalKeywords.stream().map(s -> s.getOriginalString()).collect(Collectors.joining(";")));
-		addToJCasIndex(md);
+		List<String> keywordsString = finalKeywords.stream().map(s -> s.getOriginalString()).collect(Collectors.toList());
 		
-		if(addBuzzwords){
-			for(StemmedString keyword : finalKeywords){
-				Matcher m = Pattern.compile("\\b"+Pattern.quote(keyword.getOriginalString())+"\\b", Pattern.CASE_INSENSITIVE).matcher(jCas.getDocumentText());
-				while(m.find()){
-					Buzzword bw = new Buzzword(jCas, m.start(), m.end());
-					bw.setTags(UimaTypesUtils.toArray(jCas, Arrays.asList("keyword")));
-					addToJCasIndex(bw);
-				}
-			}
-		}
+		addKeywordsToJCas(jCas, keywordsString);
 	}
 	
 	private List<StemmedString> generateCandidates(String sentence){
@@ -364,15 +272,5 @@ class StemmedString implements Comparable<StemmedString>{
 	@Override
 	public int hashCode(){
 		return strStemmed.hashCode();
-	}
-}
-
-/**
- * A no-op Stemmer which returns the same string as it is passed.
- */
-class NoOpStemmer implements Stemmer{
-	@Override
-	public CharSequence stem(CharSequence cs) {
-		return cs;
 	}
 }
