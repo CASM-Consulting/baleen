@@ -8,6 +8,8 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.DocumentAnnotation;
 import org.apache.uima.resource.ResourceInitializationException;
 import uk.ac.susx.baleen.SussexDataStorage;
+import uk.gov.dstl.baleen.types.BaleenAnnotation;
+import uk.gov.dstl.baleen.types.common.Quantity;
 import uk.gov.dstl.baleen.types.common.Url;
 import uk.gov.dstl.baleen.types.semantic.Location;
 import uk.gov.dstl.baleen.uima.BaleenConsumer;
@@ -16,9 +18,12 @@ import javax.servlet.AsyncContext;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
+ * Extract a subset of all annotations, serialise them to JSON and respond to HTTP post.
+ * @see uk.gov.dstl.baleen.collectionreaders.HttpReader
  * Created by mmb28 on 04/05/2016.
  */
 public class HttpConsumer extends BaleenConsumer {
@@ -35,25 +40,13 @@ public class HttpConsumer extends BaleenConsumer {
         DocumentAnnotation da = getDocumentAnnotation(jcas);
         final String docId = da.getSourceUri();
 
-        final AnnotatedDocument pojo = new AnnotatedDocument();
+        AnnotatedDocument pojo = new AnnotatedDocument();
         pojo.setText(jcas.getDocumentText());
         pojo.setId(docId);
 
-
-        Collection<Location> locations = JCasUtil.select(jcas, Location.class);
-        final List<String> locationMentions = locations
-                .stream()
-                .map(loc -> jcas.getDocumentText().substring(loc.getBegin(), loc.getEnd()))
-                .collect(Collectors.toList());
-        pojo.setLocations(locationMentions);
-
-        Collection<Url> urls = JCasUtil.select(jcas, Url.class);
-        final List<String> urlMentions = urls
-                .stream()
-                .map(x -> jcas.getDocumentText().substring(x.getBegin(), x.getEnd()))
-                .collect(Collectors.toList());
-        pojo.setUrls(urlMentions);
-        //todo extract and add more annotations
+        pojo = transferAnnotations(pojo, jcas, Location.class, pojo::setLocations);
+        pojo = transferAnnotations(pojo, jcas, Url.class, pojo::setUrls);
+        pojo = transferAnnotations(pojo, jcas, Quantity.class, pojo::setQuantities);
 
         AsyncContext as = SussexDataStorage.get().notifyProcessed(docId, pojo);
 
@@ -70,6 +63,17 @@ public class HttpConsumer extends BaleenConsumer {
 
     }
 
+    private <T extends BaleenAnnotation> AnnotatedDocument transferAnnotations(AnnotatedDocument doc, JCas jcas, Class<T> clazz, Consumer<List<String>> method){
+        Collection<T> annotations = JCasUtil.select(jcas, clazz);
+        final List<String> locationMentions = annotations
+                .stream()
+                .map(ann -> jcas.getDocumentText().substring(ann.getBegin(), ann.getEnd()))
+                .collect(Collectors.toList());
+        method.accept(locationMentions);
+
+        return doc;
+    }
+
     @Override
     public void doDestroy() {
 
@@ -78,6 +82,12 @@ public class HttpConsumer extends BaleenConsumer {
     // POJO that Jackson turns into JSON
     private class AnnotatedDocument {
         private String text;
+        private String id;
+        private List<String> locations;
+        private List<String> urls;
+        private List<String> quantities;
+
+
 
         public String getId() {
             return id;
@@ -86,9 +96,6 @@ public class HttpConsumer extends BaleenConsumer {
         public void setId(String id) {
             this.id = id;
         }
-
-        private String id;
-        private List<String> locations;
 
         public List<String> getUrls() {
             return urls;
@@ -114,7 +121,13 @@ public class HttpConsumer extends BaleenConsumer {
             this.text = text;
         }
 
-        private List<String> urls;
+        public List<String> getQuantities() {
+            return quantities;
+        }
+
+        public void setQuantities(List<String> quantities) {
+            this.quantities = quantities;
+        }
     }
 
 }
