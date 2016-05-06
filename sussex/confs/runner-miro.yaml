@@ -1,0 +1,12 @@
+pipelines:
+  - name: miro-networked
+    file: sussex/confs/sample_pipeline_miro.yaml
+#  - name: miro-local-file
+#    file: sussex/confs/sample_pipeline_miro_local.yaml
+
+    
+logging:
+  loggers:
+    - name: console
+      minLevel: INFO
+      
