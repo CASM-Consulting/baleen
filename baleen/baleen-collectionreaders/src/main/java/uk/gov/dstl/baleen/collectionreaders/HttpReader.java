@@ -13,6 +13,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.ConcurrentArrayQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.susx.baleen.SussexDataStorage;
 import uk.gov.dstl.baleen.uima.BaleenCollectionReader;
 
 import javax.servlet.AsyncContext;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Queue;
 
 /**
+ * A collection reader that listens for HTTP POST requests and puts those down a pipeline
  * Created by mmb28 on 04/05/2016.
  */
 public class HttpReader extends BaleenCollectionReader {
@@ -59,8 +61,6 @@ public class HttpReader extends BaleenCollectionReader {
         } else {
             System.out.println("Server has not yet been configured");
         }
-
-        SussexDataStorage.init();
     }
 
     @Override
@@ -91,20 +91,19 @@ public class HttpReader extends BaleenCollectionReader {
             this.collectionReader = collectionReader;
         }
 
-        //URL is: http://0.0.0.0:6413/api/1/consume
-        // test like so: wget http://0.0.0.0:3124/sussex/consume --post-data="data=hello from www.google.com in Germany&id=1" -qO-
+        // URL is: http://0.0.0.0:6413/api/1/consume
         // test like so: wget http://0.0.0.0:3124/sussex/consume --post-data='data=[{"text":"hello from www.google.com in Germany","id":"1"}]' -qO-
         @Override
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             List<Document> payload = mapper.readValue(req.getParameter("data"), new TypeReference<List<Document>>() {});
 
             final AsyncContext as = req.startAsync();
-            as.setTimeout(10_000);//10s
+            as.setTimeout(30_000);//10s
             for(Document d: payload){
                 collectionReader.addData(d);
-                SussexDataStorage.add(d.id.toString(), as);
+                SussexDataStorage.get().addRawDoc(d.id.toString(), as);
             }
-            SussexDataStorage.setBatchSize(as, payload.size());
+            SussexDataStorage.get().setBatchSize(as, payload.size());
         }
     }
 

@@ -7,7 +7,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.DocumentAnnotation;
 import org.apache.uima.resource.ResourceInitializationException;
-import uk.gov.dstl.baleen.collectionreaders.SussexDataStorage;
+import uk.ac.susx.baleen.SussexDataStorage;
 import uk.gov.dstl.baleen.types.common.Url;
 import uk.gov.dstl.baleen.types.semantic.Location;
 import uk.gov.dstl.baleen.uima.BaleenConsumer;
@@ -55,14 +55,13 @@ public class HttpConsumer extends BaleenConsumer {
         pojo.setUrls(urlMentions);
         //todo extract and add more annotations
 
-        final AsyncContext as = SussexDataStorage.getAndRemove(docId);
-        SussexDataStorage.addReadyDocument(as, pojo);
+        AsyncContext as = SussexDataStorage.get().notifyProcessed(docId, pojo);
 
-        if (SussexDataStorage.getNumProcessed(as) == SussexDataStorage.getBatchSize(as)) {
+        if (SussexDataStorage.get().isBatchDone(docId)) {
             // done with all docs in this batch
             try {
                 as.getResponse().setContentType("application/json");
-                mapper.writeValue(as.getResponse().getWriter(), SussexDataStorage.getAllProcessed(as));
+                mapper.writeValue(as.getResponse().getWriter(), SussexDataStorage.get().getProcessedBatch(docId));
             } catch (IOException e) {
                 e.printStackTrace();
             }
