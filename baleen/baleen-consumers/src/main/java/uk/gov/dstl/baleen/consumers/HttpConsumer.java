@@ -7,6 +7,7 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.DocumentAnnotation;
 import org.apache.uima.resource.ResourceInitializationException;
+import org.eclipse.jetty.io.RuntimeIOException;
 import uk.ac.susx.baleen.SussexDataStorage;
 import uk.gov.dstl.baleen.types.BaleenAnnotation;
 import uk.gov.dstl.baleen.types.common.Quantity;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 
 /**
  * Extract a subset of all annotations, serialise them to JSON and respond to HTTP post.
- * @see uk.gov.dstl.baleen.collectionreaders.HttpReader
+ * see uk.gov.dstl.baleen.collectionreaders.HttpReader
  * Created by mmb28 on 04/05/2016.
  */
 public class HttpConsumer extends BaleenConsumer {
@@ -48,15 +49,16 @@ public class HttpConsumer extends BaleenConsumer {
         pojo = transferAnnotations(pojo, jcas, Url.class, pojo::setUrls);
         pojo = transferAnnotations(pojo, jcas, Quantity.class, pojo::setQuantities);
 
-        AsyncContext as = SussexDataStorage.get().notifyProcessed(docId, pojo);
+        AsyncContext as = SussexDataStorage.get().addProcessedDoc(docId, pojo);
 
         if (SussexDataStorage.get().isBatchDone(as)) {
             // done with all docs in this batch
             try {
                 as.getResponse().setContentType("application/json");
                 mapper.writeValue(as.getResponse().getWriter(), SussexDataStorage.get().getProcessedBatch(as));
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException | RuntimeIOException e) {
+                // client stopped listening, whatever
+                return;
             }
             as.complete();
         }

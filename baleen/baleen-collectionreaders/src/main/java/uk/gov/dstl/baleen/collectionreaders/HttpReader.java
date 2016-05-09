@@ -95,10 +95,16 @@ public class HttpReader extends BaleenCollectionReader {
         // test like so: wget http://0.0.0.0:3124/sussex/consume --post-data='data=[{"text":"hello from www.google.com in Germany","id":"1"}]' -qO-
         @Override
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-            List<Document> payload = mapper.readValue(req.getParameter("data"), new TypeReference<List<Document>>() {});
+            List<Document> payload;
+            try {
+                payload = mapper.readValue(req.getParameter("data"), new TypeReference<List<Document>>() {});
+            } catch (IOException e) {
+                resp.sendError(500, "JSON is not quite right. Nothing to do here.");
+                return;
+            }
 
             final AsyncContext as = req.startAsync();
-            as.setTimeout(30_000);//10s
+            as.setTimeout(30_000);//ms
             for(Document d: payload){
                 collectionReader.addData(d);
                 SussexDataStorage.get().addRawDoc(d.id.toString(), as);

@@ -27,13 +27,13 @@ public class SussexDataStorage {
     // maps doc id to its HTTP context
     private Map<String, AsyncContext> raw2context;
     // maps HTTP context to number of incoming docs it contained
-    private Map<AsyncContext, Integer> context2raw;
+    private Map<AsyncContext, Integer> context2rawSize;
     // maps HTTP context to the processed version of all documents that arrived with that request
     private Map<AsyncContext, List<Object>> context2processed;
 
     private SussexDataStorage() {
         raw2context = new HashMap<>();
-        context2raw = new HashMap<>();
+        context2rawSize = new HashMap<>();
         context2processed = new HashMap<>();
     }
 
@@ -52,7 +52,7 @@ public class SussexDataStorage {
      * @param processedDoc processed version
      * @return
      */
-    public synchronized AsyncContext notifyProcessed(String id, Object processedDoc) {
+    public synchronized AsyncContext addProcessedDoc(String id, Object processedDoc) {
         final AsyncContext as = raw2context.remove(id);
 
         List<Object> done;
@@ -73,14 +73,14 @@ public class SussexDataStorage {
      * @return
      */
     public boolean isBatchDone(AsyncContext as){
-        return context2processed.get(as).size() == context2raw.get(as);
+        return context2processed.get(as).size() == context2rawSize.get(as);
     }
 
     /**
      * Specifies how large a batch that arrived in an HTTP context is
      */
     public synchronized void setBatchSize(AsyncContext as, int size) {
-        context2raw.put(as, size);
+        context2rawSize.put(as, size);
     }
 
 
@@ -91,7 +91,7 @@ public class SussexDataStorage {
      * @return
      */
     public synchronized List<Object> getProcessedBatch(AsyncContext as) {
-        context2raw.remove(as);
+        context2rawSize.remove(as);
         return context2processed.remove(as);
     }
 }
