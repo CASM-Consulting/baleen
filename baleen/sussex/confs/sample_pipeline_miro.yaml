@@ -45,13 +45,13 @@ annotators:
 - regex.Volume
 - regex.Weight
 - class: stats.OpenNLP
-  model: baleen/baleen-runner/models/en-ner-location.bin
+  model: baleen-runner/models/en-ner-location.bin
   type: Location
 - class: stats.OpenNLP
-  model: baleen/baleen-runner/models/en-ner-organization.bin
+  model: baleen-runner/models/en-ner-organization.bin
   type: Organisation
 - class: stats.OpenNLP
-  model: baleen/baleen-runner/models/en-ner-person.bin
+  model: baleen-runner/models/en-ner-person.bin
   type: Person
 - cleaners.MergeAdjacentQuantities
 - grammatical.NPTitleEntity
