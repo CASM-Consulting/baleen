@@ -98,7 +98,7 @@ public class HttpReader extends BaleenCollectionReader {
             List<Document> payload;
             try {
                 payload = mapper.readValue(req.getParameter("data"), new TypeReference<List<Document>>() {});
-            } catch (IOException e) {
+            } catch (Exception e) {
                 resp.sendError(500, "JSON is not quite right. Nothing to do here.");
                 return;
             }

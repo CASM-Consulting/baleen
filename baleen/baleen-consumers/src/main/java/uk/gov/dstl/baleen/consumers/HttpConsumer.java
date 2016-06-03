@@ -10,8 +10,8 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.eclipse.jetty.io.RuntimeIOException;
 import uk.ac.susx.baleen.SussexDataStorage;
 import uk.gov.dstl.baleen.types.BaleenAnnotation;
-import uk.gov.dstl.baleen.types.common.Quantity;
-import uk.gov.dstl.baleen.types.common.Url;
+import uk.gov.dstl.baleen.types.common.Organisation;
+import uk.gov.dstl.baleen.types.common.Person;
 import uk.gov.dstl.baleen.types.semantic.Location;
 import uk.gov.dstl.baleen.uima.BaleenConsumer;
 
@@ -42,12 +42,12 @@ public class HttpConsumer extends BaleenConsumer {
         final String docId = da.getSourceUri();
 
         AnnotatedDocument pojo = new AnnotatedDocument();
-        pojo.setText(jcas.getDocumentText());
+        // if the doc text is long it's wasteful to send it back
         pojo.setId(docId);
 
         pojo = transferAnnotations(pojo, jcas, Location.class, pojo::setLocations);
-        pojo = transferAnnotations(pojo, jcas, Url.class, pojo::setUrls);
-        pojo = transferAnnotations(pojo, jcas, Quantity.class, pojo::setQuantities);
+        pojo = transferAnnotations(pojo, jcas, Person.class, pojo::setPersons);
+        pojo = transferAnnotations(pojo, jcas, Organisation.class, pojo::setOrganisations);
 
         AsyncContext as = SussexDataStorage.get().addProcessedDoc(docId, pojo);
 
@@ -65,13 +65,13 @@ public class HttpConsumer extends BaleenConsumer {
 
     }
 
-    private <T extends BaleenAnnotation> AnnotatedDocument transferAnnotations(AnnotatedDocument doc, JCas jcas, Class<T> clazz, Consumer<List<String>> method){
+    private <T extends BaleenAnnotation> AnnotatedDocument transferAnnotations(AnnotatedDocument doc, JCas jcas, Class<T> clazz, Consumer<List<String>> method) {
         Collection<T> annotations = JCasUtil.select(jcas, clazz);
-        final List<String> locationMentions = annotations
+        final List<String> mentions = annotations
                 .stream()
                 .map(ann -> jcas.getDocumentText().substring(ann.getBegin(), ann.getEnd()))
                 .collect(Collectors.toList());
-        method.accept(locationMentions);
+        method.accept(mentions);
 
         return doc;
     }
@@ -83,13 +83,14 @@ public class HttpConsumer extends BaleenConsumer {
 
     // POJO that Jackson turns into JSON
     private class AnnotatedDocument {
-        private String text;
         private String id;
+        private List<String> persons;
         private List<String> locations;
-        private List<String> urls;
-        private List<String> quantities;
+        private List<String> organisations;
 
-
+        public List<String> getOrganisations() {
+            return organisations;
+        }
 
         public String getId() {
             return id;
@@ -97,14 +98,6 @@ public class HttpConsumer extends BaleenConsumer {
 
         public void setId(String id) {
             this.id = id;
-        }
-
-        public List<String> getUrls() {
-            return urls;
-        }
-
-        public void setUrls(List<String> urls) {
-            this.urls = urls;
         }
 
         public List<String> getLocations() {
@@ -115,21 +108,18 @@ public class HttpConsumer extends BaleenConsumer {
             this.locations = locations;
         }
 
-        public String getText() {
-            return text;
+        public List<String> getPersons() {
+            return persons;
         }
 
-        public void setText(String text) {
-            this.text = text;
+        public void setPersons(List<String> persons) {
+            this.persons = persons;
         }
 
-        public List<String> getQuantities() {
-            return quantities;
+        public void setOrganisations(List<String> organisations) {
+            this.organisations = organisations;
         }
 
-        public void setQuantities(List<String> quantities) {
-            this.quantities = quantities;
-        }
     }
 
 }

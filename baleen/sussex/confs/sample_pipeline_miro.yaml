@@ -6,7 +6,7 @@ collectionreader:
   class: HttpReader
 
 annotators:
-#- language.OpenNLP
+- language.OpenNLP
 # - gazetteer.Country
 #- class: gazetteer.Mongo
 #  type: Buzzword
@@ -20,30 +20,30 @@ annotators:
 #- class: gazetteer.Mongo
 #  type: Person
 #  collection: people
-- regex.Area
-- regex.BritishArmyUnits
-- regex.Callsign
-- regex.Date
-- regex.DateTime
-- regex.Distance
-- regex.Dtg
-- regex.Email
-- regex.FlightNumber
-- regex.Frequency
-- regex.IpV4
-- regex.LatLon
-- regex.Mgrs
-- regex.Money
-- regex.Nationality
-- regex.Osgb
-- regex.Postcode
-- regex.TaskForce
-- regex.Telephone
-- regex.Time
-- regex.TimeQuantity
-- regex.Url
-- regex.Volume
-- regex.Weight
+# - regex.Area
+# - regex.BritishArmyUnits
+# - regex.Callsign
+# - regex.Date
+# - regex.DateTime
+# - regex.Distance
+# - regex.Dtg
+# - regex.Email
+# - regex.FlightNumber
+# - regex.Frequency
+# - regex.IpV4
+# - regex.LatLon
+# - regex.Mgrs
+# - regex.Money
+# - regex.Nationality
+# - regex.Osgb
+# - regex.Postcode
+# - regex.TaskForce
+# - regex.Telephone
+# - regex.Time
+# - regex.TimeQuantity
+# - regex.Url
+# - regex.Volume
+# - regex.Weight
 - class: stats.OpenNLP
   model: baleen-runner/models/en-ner-location.bin
   type: Location
