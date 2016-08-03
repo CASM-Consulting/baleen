@@ -12,6 +12,7 @@ import uk.ac.susx.baleen.SussexDataStorage;
 import uk.gov.dstl.baleen.types.BaleenAnnotation;
 import uk.gov.dstl.baleen.types.common.Organisation;
 import uk.gov.dstl.baleen.types.common.Person;
+import uk.gov.dstl.baleen.types.geo.Coordinate;
 import uk.gov.dstl.baleen.types.semantic.Location;
 import uk.gov.dstl.baleen.uima.BaleenConsumer;
 
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +47,7 @@ public class HttpConsumer extends BaleenConsumer {
         // if the doc text is long it's wasteful to send it back
         pojo.setId(docId);
 
+        pojo = transferAnnotations(pojo, jcas, Coordinate.class, coord -> coord.getCoordinateValue(), pojo::setCoordinates);
         pojo = transferAnnotations(pojo, jcas, Location.class, pojo::setLocations);
         pojo = transferAnnotations(pojo, jcas, Person.class, pojo::setPersons);
         pojo = transferAnnotations(pojo, jcas, Organisation.class, pojo::setOrganisations);
@@ -65,13 +68,33 @@ public class HttpConsumer extends BaleenConsumer {
 
     }
 
-    private <T extends BaleenAnnotation> AnnotatedDocument transferAnnotations(AnnotatedDocument doc, JCas jcas, Class<T> clazz, Consumer<List<String>> method) {
-        Collection<T> annotations = JCasUtil.select(jcas, clazz);
+    private <T extends BaleenAnnotation> AnnotatedDocument transferAnnotations(AnnotatedDocument doc, JCas jcas, Class<T> annotationClass,
+                                                                               Consumer<List<String>> writeMethod) {
+        return transferAnnotations(doc, jcas, annotationClass,
+                                   ann -> jcas.getDocumentText().substring(ann.getBegin(), ann.getEnd()),
+                                   writeMethod);
+    }
+
+    /**
+     * Extract annotations of a given type, converts them to string and calls a function on the result
+     *
+     * @param doc document to transfer the annotations to
+     * @param jcas UIMA Common Annotation Structure that holds annotations of different types
+     * @param annotationClass class of interest, type T
+     * @param readMethod called on each annotation to convert it to string.
+     * @param writeMethod called on each string representation of an annotation
+     * @param <T> One of Baleen's annotation classes
+     * @return
+     */
+    private <T extends BaleenAnnotation> AnnotatedDocument transferAnnotations(AnnotatedDocument doc, JCas jcas, Class<T> annotationClass,
+                                                                               Function<T, String> readMethod,
+                                                                               Consumer<List<String>> writeMethod) {
+        Collection<T> annotations = JCasUtil.select(jcas, annotationClass);
         final List<String> mentions = annotations
                 .stream()
-                .map(ann -> jcas.getDocumentText().substring(ann.getBegin(), ann.getEnd()))
+                .map(readMethod)
                 .collect(Collectors.toList());
-        method.accept(mentions);
+        writeMethod.accept(mentions);
 
         return doc;
     }
@@ -86,6 +109,7 @@ public class HttpConsumer extends BaleenConsumer {
         private String id;
         private List<String> persons;
         private List<String> locations;
+        private List<String> coordinates;
         private List<String> organisations;
 
         public List<String> getOrganisations() {
@@ -120,6 +144,13 @@ public class HttpConsumer extends BaleenConsumer {
             this.organisations = organisations;
         }
 
+        public List<String> getCoordinates() {
+            return coordinates;
+        }
+
+        public void setCoordinates(List<String> coordinates) {
+            this.coordinates = coordinates;
+        }
     }
 
 }
