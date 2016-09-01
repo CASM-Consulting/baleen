@@ -68,7 +68,7 @@ public class HttpReader extends BaleenCollectionReader {
         Document nextDocument = data.poll();
         DocumentAnnotation da = (DocumentAnnotation) jCas.getDocumentAnnotationFs();
         da.setSourceUri(nextDocument.id.toString());
-        jCas.setDocumentText(nextDocument.text);
+        jCas.setDocumentText(nextDocument.text == null ? "" : nextDocument.text);
     }
 
     @Override
