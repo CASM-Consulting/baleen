@@ -4,7 +4,7 @@ See readme of upstream project [here ](https://github.com/dstl/baleen).
 
 # Getting Started
 
-Run `cd baleen; mvn package` to build an executable, then `java -jar target/baleen-2.2.0-SNAPSHOT.jar sussex/confs/runner-miro.yaml` to start the web server.
+Run `cd baleen; mvn package; ./start.sh` to build an executable and run it.
 
 Once running, the server can be accessed at [http://localhost:6413](http://localhost:6413). Use HTTP POST requests to have Baleen annotate data for you:
 
