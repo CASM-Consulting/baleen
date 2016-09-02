@@ -2,6 +2,7 @@ package uk.gov.dstl.baleen.collectionreaders;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.uima.UimaContext;
 import org.apache.uima.collection.CollectionException;
 import org.apache.uima.jcas.JCas;
@@ -106,11 +107,19 @@ public class HttpReader extends BaleenCollectionReader {
             final AsyncContext as = req.startAsync();
             as.setTimeout(30_000);//ms
             for(Document d: payload){
-                collectionReader.addData(d);
-                SussexDataStorage.get().addRawDoc(d.id.toString(), as);
+                Document clean = sanitise(d);
+                collectionReader.addData(clean);
+                SussexDataStorage.get().addRawDoc(clean.id.toString(), as);
             }
             SussexDataStorage.get().setBatchSize(as, payload.size());
         }
+    }
+
+    private static Document sanitise (Document input){
+        Document res = new Document();
+        res.id = input.id == null ? RandomStringUtils.randomAlphabetic(32) : input.id;
+        res.text = input.text == null ? "" : input.text;
+        return res;
     }
 
     // Jackson POJO
