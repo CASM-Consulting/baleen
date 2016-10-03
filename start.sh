@@ -18,7 +18,7 @@ then
 fi
 
 
-nohup java -jar target/baleen-2.2.0-SNAPSHOT.jar sussex/confs/runner-miro.yaml  > ../baleen.log &
+nohup java -jar target/baleen-2.2.0-SNAPSHOT.jar sussex/confs/runner-miro.yaml -encoding utf8  > ../baleen.log &
 
 PID=$!
 
